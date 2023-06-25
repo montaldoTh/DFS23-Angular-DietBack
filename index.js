@@ -14,7 +14,7 @@ app.use(express.static("uploads"))
 const connection = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "",
+  password: "db2023",
   database: "dietplus",
 });
 
@@ -52,11 +52,10 @@ const storage = multer.diskStorage({
     cb(null, "uploads/")
   },
   filename: function (req, file, cb) {
-
     const product = JSON.parse(req.body.product)
     const extension = file.originalname.split('.').pop();
-    const pictureName = 'product_' + product.title + '.' + extension; 
-    req.nomImage = pictureName;
+    const pictureName = 'product_' + product.nom + '.' + extension; 
+    req.image = pictureName;
     cb(null, pictureName)
   }
 })
@@ -102,10 +101,10 @@ app.get("/product/:id", (req, res) => {
 // Route pour créer un nouvel product
 app.post("/product", upload, (req, res) => {
   const product = JSON.parse(req.body.product);
-  if(req.nomImage){
-    product.nom_image = req.nomImage;
+  if(req.image){
+    product.image = req.image;
   }
-  connection.query("INSERT INTO products SET ?", product, (err, result) => {
+  connection.query("INSERT INTO product SET ?", product, (err, result) => {
     if (err) {
       console.error("Erreur lors de la création de l'product :", err);
       res.status(500).send("Erreur serveur");
@@ -120,8 +119,8 @@ app.post("/product", upload, (req, res) => {
 app.put("/product/:id", upload, (req, res) => {
   const productId = req.params.id;
   const product = JSON.parse(req.body.product);
-  if(req.nomImage){
-    product.nom_image = req.nomImage;
+  if(req.image){
+    product.image = req.image;
   }
   connection.query(
     "UPDATE product SET ? WHERE id = ?",
@@ -144,7 +143,7 @@ app.delete("/product/:id", authenticateToken, (req, res) => {
     res.sendStatus(403)
     return;
   }
-  connection.query("DELETE FROM products WHERE id = ?", [productId], (err) => {
+  connection.query("DELETE FROM product WHERE id = ?", [productId], (err) => {
     if (err) {
       console.error("Erreur lors de la suppression de l'product :", err);
       res.status(500).send("Erreur serveur");
@@ -178,7 +177,7 @@ app.post("/login", (req, res) => {
 
       // Générer un token JWT
       const token = jwt.sign(
-        { email: user.email, admin: user.admin },
+        { email: user.email, admin: user.admin, nom: user.nom, prenom: user.prenom },
         "your_secret_key",
         { expiresIn: "1d" } // Expiration du token
       );
@@ -189,8 +188,10 @@ app.post("/login", (req, res) => {
   });
 });
 // Point de terminaison pour l'inscription
-app.post('/signup', (req, res) => {
-  const { email, password, admin } = req.body;
+app.post('/signup', upload, (req, res) => {
+
+  console.log(req.body.user);
+  const { email, password, admin, nom, prenom, image } = JSON.parse(req.body.user);
 
   // Vérifier si l'utilisateur existe déjà dans la base de données
   connection.query('SELECT * FROM user WHERE email = ?', [email], (err, results) => {
@@ -209,14 +210,14 @@ app.post('/signup', (req, res) => {
       }
 
       // Insérer le nouvel utilisateur dans la base de données
-      connection.query('INSERT INTO user (email, password, admin) VALUES (?, ?, ?)', [email, hashedPassword, admin], (insertErr, insertResult) => {
+      connection.query('INSERT INTO user (email, password, admin, nom, prenom, image) VALUES (?, ?, ?, ?, ?, ?)', [email, hashedPassword, admin, nom, prenom, image], (insertErr, insertResult) => {
         if (insertErr) {
           throw insertErr;
         }
 
         // Générer un token JWT pour l'utilisateur nouvellement inscrit
         const token = jwt.sign(
-          { email, admin },
+          { email, admin, nom, prenom },
           'your_secret_key',
           { expiresIn: '1h' } // Expiration du token
         );
